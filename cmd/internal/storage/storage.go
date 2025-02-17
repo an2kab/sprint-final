@@ -1,0 +1,6 @@
+package storage
+
+func NewStorage {
+
+	
+}

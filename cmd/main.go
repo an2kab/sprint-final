@@ -6,5 +6,11 @@ import (
 
 func main() {
 
-	server.NewServer()
+	//storage.NewStorage()
+	s, err := server.NewRouter()
+	if err != nil {
+		return
+	}
+	server.NewServer(s)
+
 }

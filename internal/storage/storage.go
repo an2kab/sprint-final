@@ -29,7 +29,7 @@ func NewStorage() (db *sql.DB, err error) {
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println("Connect to database")
+		fmt.Println("Подключение к базе данных")
 		_, err = db.Exec("CREATE TABLE scheduler (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL DEFAULT '', title VARCHAR(128) NOT NULL DEFAULT '', comment VARCHAR(256) NOT NULL DEFAULT '', repeat VARCHAR(128) NOT NULL DEFAULT '')")
 		if err != nil {
 			return nil, err
@@ -38,15 +38,13 @@ func NewStorage() (db *sql.DB, err error) {
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println("Table created")
-		//defer db.Close()
+		fmt.Println("Таблица создана")
 	} else {
 		db, err = sql.Open("sqlite3", dbFile)
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println("Connect to database 2")
-		//defer db.Close()
+		fmt.Println("Подключение к созданной базе данных")
 	}
 	return db, nil
 }

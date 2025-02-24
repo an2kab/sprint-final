@@ -11,7 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func NewRouter() (*api.RoutDb, error) {
+func ConnectDB() (*api.RoutDb, error) {
 	// Подключение к БД
 	db, err := storage.NewStorage()
 	if err != nil {
@@ -23,7 +23,7 @@ func NewRouter() (*api.RoutDb, error) {
 	}, nil
 }
 
-// Создается сервер с портом подключения 7540, а также подключение к БД и обработчикам через роутер
+// NewServer - функциия создания сервера с портом подключения 7540, а также подключение к обработчикам через роутер
 func NewServer(r *api.RoutDb) *chi.Mux {
 
 	mx := chi.NewRouter()

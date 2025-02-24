@@ -6,7 +6,7 @@ import (
 
 func main() {
 
-	s, err := server.NewRouter()
+	s, err := server.ConnectDB()
 	if err != nil {
 		return
 	}

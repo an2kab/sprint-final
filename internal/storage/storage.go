@@ -25,7 +25,7 @@ func NewStorage() (db *sql.DB, err error) {
 		install = true
 	}
 	if install {
-		db, err := sql.Open("sqlite3", dbFile)
+		db, err = sql.Open("sqlite3", dbFile)
 		if err != nil {
 			return nil, err
 		}
@@ -41,11 +41,11 @@ func NewStorage() (db *sql.DB, err error) {
 		fmt.Println("Table created")
 		//defer db.Close()
 	} else {
-		_, err := sql.Open("sqlite3", dbFile)
+		db, err = sql.Open("sqlite3", dbFile)
 		if err != nil {
 			return nil, err
 		}
-		//fmt.Println("Connect to database")
+		fmt.Println("Connect to database 2")
 		//defer db.Close()
 	}
 	return db, nil

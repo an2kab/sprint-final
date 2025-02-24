@@ -11,11 +11,11 @@ import (
 )
 
 type Task struct {
-	ID      string `json:"id, omitempty"`
-	Date    string `json:"date, omitempty"`
-	Title   string `json:"title, omitempty"`
-	Comment string `json:"comment, omitempty"`
-	Repeat  string `json:"repeat, omitempty"`
+	ID      string `json:"id,omitempty"`
+	Date    string `json:"date,omitempty"`
+	Title   string `json:"title,omitempty"`
+	Comment string `json:"comment,omitempty"`
+	Repeat  string `json:"repeat,omitempty"`
 }
 
 type RoutDb struct {
@@ -23,11 +23,26 @@ type RoutDb struct {
 }
 
 type ResponseTask struct {
-	ID    string `json:"id, omitempty"`
-	Error string `json:"error, omitempty"`
+	ID    string `json:"id,omitempty"`
+	Error string `json:"error,omitempty"`
 }
 
-// Обработчик повторения задачи раз в год или через определенное количество дней
+// JsonError - функция отправки json с текстом ошибки
+func JsonError(w http.ResponseWriter, text string) {
+	var responseTask ResponseTask
+	responseTask.Error = text
+	//fmt.Printf("%s: %s\n", text)
+
+	res, err := json.Marshal(responseTask)
+	if err != nil {
+		http.Error(w, "ошибка сериализации json с ошибкой", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusBadRequest)
+	w.Write(res)
+}
+
+// NextDateHandler - обработчик повторения задачи раз в год или через определенное количество дней
 func (rb *RoutDb) NextDateHandler(w http.ResponseWriter, r *http.Request) {
 	now := r.FormValue("now")
 	date := r.FormValue("date")
@@ -48,7 +63,7 @@ func (rb *RoutDb) NextDateHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(response))
 }
 
-// Обработчик добавления задачи, получения информации о задаче, редактирования задачи и удаления задачи
+// TaskHandler - обработчик добавления задачи, получения информации о задаче, редактирования задачи и удаления задачи
 func (rb *RoutDb) TaskHandler(w http.ResponseWriter, r *http.Request) {
 
 	var responseTask ResponseTask
@@ -59,7 +74,6 @@ func (rb *RoutDb) TaskHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	// Добавление задачи
 	case "POST":
-		// Создается экземпляр структуры для формирования ответа
 		w.Header().Set("Content-Type", "applicatiom/json; charset=UTF-8")
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -76,7 +90,9 @@ func (rb *RoutDb) TaskHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("Task: %v\n", task)
 
 		if task.Title == "" {
-			http.Error(w, "не указан заголовок задачи", http.StatusBadRequest)
+			JsonError(w, "не указан заголовок задачи")
+			//http.Error(w, "не указан заголовок задачи", http.StatusBadRequest)
+			return
 		}
 
 		if task.Date == "" {
@@ -84,7 +100,8 @@ func (rb *RoutDb) TaskHandler(w http.ResponseWriter, r *http.Request) {
 		} else {
 			parseDate, err = time.Parse("20060102", task.Date)
 			if err != nil {
-				http.Error(w, "дата представлена в формате, отличном от 20060102", http.StatusBadRequest)
+				JsonError(w, "дата представлена в формате, отличном от 20060102")
+				//http.Error(w, "дата представлена в формате, отличном от 20060102", http.StatusBadRequest)
 				return
 			}
 
@@ -97,7 +114,8 @@ func (rb *RoutDb) TaskHandler(w http.ResponseWriter, r *http.Request) {
 				default:
 					nextDate, err = NextDate(time.Now(), task.Date, task.Repeat)
 					if err != nil {
-						http.Error(w, "правило повторения указано в неправильном формате", http.StatusBadRequest)
+						JsonError(w, "правило повторения указано в неправильном формате")
+						//http.Error(w, "правило повторения указано в неправильном формате", http.StatusBadRequest)
 						return
 					}
 					task.Date = nextDate
@@ -105,32 +123,21 @@ func (rb *RoutDb) TaskHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 		}
-		fmt.Println("Запись в БД...")
-		fmt.Printf("date: %s\n", task.Date)
-		fmt.Printf("title: %s\n", task.Title)
-		fmt.Printf("comment: %s\n", task.Comment)
-		fmt.Printf("repeat: %s\n", task.Repeat)
-		resDb, err := rb.DB.Exec(`
-		INSERT INTO scheduler
-			(date, title, comment, repeat)
-			VALUES
-			(:date, :title, :comment, :repeat)`,
-			sql.Named("date", task.Date),
-			sql.Named("title", task.Title),
-			sql.Named("comment", task.Comment),
-			sql.Named("repeat", task.Repeat),
-		)
+		// fmt.Println("Запись в БД...")
+		// fmt.Printf("date: %s\n", task.Date)
+		// fmt.Printf("title: %s\n", task.Title)
+		// fmt.Printf("comment: %s\n", task.Comment)
+		// fmt.Printf("repeat: %s\n", task.Repeat)
+		resDb, err := rb.DB.Exec(`INSERT INTO scheduler	(date, title, comment, repeat) VALUES (:date, :title, :comment, :repeat)`, sql.Named("date", task.Date), sql.Named("title", task.Title), sql.Named("comment", task.Comment), sql.Named("repeat", task.Repeat))
 		if err != nil {
-			fmt.Printf("ошибка добавления в БД: %s\n", err.Error())
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, "ошибка добавления в БД", http.StatusInternalServerError)
 			return
 		}
-		fmt.Println("Запись в БД выпонена успешно")
+		fmt.Println("Запись в БД выпонена")
 
 		id, err := resDb.LastInsertId()
 		if err != nil {
-			fmt.Printf("ошибка получения номера записи в БД: %s\n", err.Error())
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, "ошибка получения id", http.StatusInternalServerError)
 			return
 		}
 		responseTask.ID = strconv.Itoa(int(id))
@@ -138,8 +145,7 @@ func (rb *RoutDb) TaskHandler(w http.ResponseWriter, r *http.Request) {
 
 		res, err := json.MarshalIndent(responseTask, "", " ")
 		if err != nil {
-			fmt.Printf("ошибка сериализации записи: %s\n", err.Error())
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, "ошибка сериализации", http.StatusInternalServerError)
 			return
 		}
 		//fmt.Println(string(resp))
@@ -179,7 +185,7 @@ func (rb *RoutDb) TaskHandler(w http.ResponseWriter, r *http.Request) {
 		task := Task{}
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, "ошибка тела запроса", http.StatusBadRequest)
 			return
 		}
 		defer r.Body.Close()
@@ -187,18 +193,21 @@ func (rb *RoutDb) TaskHandler(w http.ResponseWriter, r *http.Request) {
 		//десериализация тела запроса в структуру
 		err = json.Unmarshal(body, &task)
 		if err != nil {
-			http.Error(w, "ошибка десериализации JSON", http.StatusBadRequest)
+			JsonError(w, "ошибка десериализации JSON")
+			//http.Error(w, "ошибка десериализации JSON", http.StatusBadRequest)
 			return
 		}
 
 		idInteger, err := strconv.Atoi(task.ID)
 		if err != nil {
-			http.Error(w, "ошибка в конвертированиии id", http.StatusInternalServerError)
+			JsonError(w, "ошибка в конвертированиии id")
+			//http.Error(w, "ошибка в конвертированиии id", http.StatusInternalServerError)
 			return
 		}
 
 		if task.Title == "" {
-			http.Error(w, "не указан заголовок задачи", http.StatusBadRequest)
+			JsonError(w, "не указан заголовок задачи")
+			//http.Error(w, "не указан заголовок задачи", http.StatusBadRequest)
 			return
 		}
 
@@ -207,7 +216,8 @@ func (rb *RoutDb) TaskHandler(w http.ResponseWriter, r *http.Request) {
 		} else {
 			parseDate, err = time.Parse("20060102", task.Date)
 			if err != nil {
-				http.Error(w, "ошибка формата времени", http.StatusBadRequest)
+				JsonError(w, "ошибка формата времени")
+				//http.Error(w, "ошибка формата времени", http.StatusBadRequest)
 				return
 			}
 
@@ -220,7 +230,8 @@ func (rb *RoutDb) TaskHandler(w http.ResponseWriter, r *http.Request) {
 				default:
 					nextDate, err = NextDate(time.Now(), task.Date, task.Repeat)
 					if err != nil {
-						http.Error(w, "ошибка вычисления следующей даты", http.StatusInternalServerError)
+						JsonError(w, "ошибка вычисления следующей даты")
+						//http.Error(w, "ошибка вычисления следующей даты", http.StatusInternalServerError)
 						return
 					}
 					task.Date = nextDate
@@ -231,19 +242,21 @@ func (rb *RoutDb) TaskHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Запись в БД...")
 
 		// проверка наличия id
-		ro := rb.DB.QueryRow(`SELECT id FROM scheduler WHERE id = :id`, sql.Named("id", idInteger))
+		row := rb.DB.QueryRow(`SELECT id FROM scheduler WHERE id = :id`, sql.Named("id", idInteger))
 
 		var i int
-		err = ro.Scan(&i)
+		err = row.Scan(&i)
 		if err != nil {
-			http.Error(w, "id отсутствует в базе", http.StatusInternalServerError)
+			JsonError(w, "id отсутствует в базе")
+			//http.Error(w, "id отсутствует в базе", http.StatusInternalServerError)
 			return
 		}
 
 		// обновление задачи
 		_, err = rb.DB.Exec(`UPDATE scheduler SET date = :date,	title = :title,	comment = :comment,	repeat = :repeat WHERE id = :id`, sql.Named("date", task.Date), sql.Named("title", task.Title), sql.Named("comment", task.Comment), sql.Named("repeat", task.Repeat), sql.Named("id", idInteger))
 		if err != nil {
-			http.Error(w, "ошибка обновления задачи", http.StatusInternalServerError)
+			JsonError(w, "ошибка обновления задачи")
+			//http.Error(w, "ошибка обновления задачи", http.StatusInternalServerError)
 			return
 		}
 		fmt.Println("Запись в БД выполнена успешно")
@@ -252,8 +265,9 @@ func (rb *RoutDb) TaskHandler(w http.ResponseWriter, r *http.Request) {
 
 		res, err := json.Marshal(empty)
 		if err != nil {
-			fmt.Printf("ошибка сериализации ответа: %s\n", err.Error())
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			//fmt.Printf("ошибка сериализации ответа: %s\n", err.Error())
+			JsonError(w, "ошибка сериализации ответа")
+			//http.Error(w, "ошибка сериализации ответа:", http.StatusInternalServerError)
 			return
 		}
 		w.Write(res)
@@ -264,24 +278,23 @@ func (rb *RoutDb) TaskHandler(w http.ResponseWriter, r *http.Request) {
 		idString := q.Get("id")
 		idInteger, err := strconv.Atoi(idString)
 		if err != nil {
-			http.Error(w, "Задача не найдена", http.StatusBadRequest)
+			JsonError(w, "Задача не найдена")
+			//http.Error(w, "Задача не найдена", http.StatusBadRequest)
 			return
 		}
 
 		//удаление задачи по id
-		_, err = rb.DB.Exec(`
-			DELETE FROM scheduler
-			WHERE id = :idInt
-			`, sql.Named("idInt", idInteger),
-		)
+		_, err = rb.DB.Exec(`DELETE FROM scheduler WHERE id = :idInt`, sql.Named("idInt", idInteger))
 		if err != nil {
-			http.Error(w, "ошибка БД", http.StatusInternalServerError)
+			JsonError(w, "ошибка БД")
+			//http.Error(w, "ошибка БД", http.StatusInternalServerError)
 			return
 		}
 
 		var empty ResponseTask
 		res, err := json.Marshal(empty)
 		if err != nil {
+			//JsonError(w, "Ошибка сериализации")
 			http.Error(w, "Ошибка сериализации", http.StatusInternalServerError)
 			return
 		}
@@ -290,7 +303,7 @@ func (rb *RoutDb) TaskHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Обработчик получения списка ближайших задач
+// TasksHandler - обработчик получения списка ближайших задач
 func (rb *RoutDb) TasksHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 
@@ -357,18 +370,17 @@ func (rb *RoutDb) TasksHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(res)
 }
 
-// Обработчик выполнения (завершения) задачи
+// DoneTaskHandler - обработчик выполнения (завершения) задачи
 func (rb *RoutDb) DoneTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 	var empty ResponseTask
-
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 
 	q := r.URL.Query()
 	idString := q.Get("id")
 	idInteger, err := strconv.Atoi(idString)
 	if err != nil {
-		http.Error(w, "Задача не найдена", http.StatusBadRequest)
+		JsonError(w, "Задача не найдена")
+		//http.Error(w, "Задача не найдена", http.StatusBadRequest)
 		return
 	}
 
@@ -378,28 +390,26 @@ func (rb *RoutDb) DoneTaskHandler(w http.ResponseWriter, r *http.Request) {
 	row := rb.DB.QueryRow(`SELECT id, date, title, comment, repeat FROM scheduler WHERE id = :idInteger`, sql.Named("idInteger", idInteger))
 	err = row.Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)
 	if err != nil {
-		http.Error(w, "ошибка БД", http.StatusInternalServerError)
+		JsonError(w, "ошибка БД")
+		//http.Error(w, "ошибка БД", http.StatusInternalServerError)
 		return
 	}
 	// Проверка на повторяемость задачи
 	if task.Repeat == "" {
-		_, err := rb.DB.Exec(`
-			DELETE FROM scheduler
-			WHERE id = :idInteger
-			`, sql.Named("idInteger", idInteger),
-		)
-
+		_, err := rb.DB.Exec(`DELETE FROM scheduler	WHERE id = :idInteger`, sql.Named("idInteger", idInteger))
 		if err != nil {
-			http.Error(w, "ошибка БД", http.StatusInternalServerError)
+			JsonError(w, "ошибка БД")
+			//http.Error(w, "ошибка БД", http.StatusInternalServerError)
 			return
 		}
 
 		res, err := json.Marshal(empty)
 		if err != nil {
-			http.Error(w, "ошибка сериализации ответа", http.StatusInternalServerError)
+			JsonError(w, "ошибка сериализации ответа")
+			//http.Error(w, "ошибка сериализации ответа", http.StatusInternalServerError)
 			return
 		}
-
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 		w.Write(res)
 
 	} else {
@@ -408,7 +418,8 @@ func (rb *RoutDb) DoneTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 		newDate, err := NextDate(now, task.Date, task.Repeat)
 		if err != nil {
-			http.Error(w, "непправильный формат", http.StatusBadRequest)
+			JsonError(w, "непправильный формат")
+			//http.Error(w, "непправильный формат", http.StatusBadRequest)
 			return
 		}
 		task.Date = newDate
@@ -416,7 +427,8 @@ func (rb *RoutDb) DoneTaskHandler(w http.ResponseWriter, r *http.Request) {
 		//вносим изменения в БД
 		_, err = rb.DB.Exec(`UPDATE scheduler SET date = :date WHERE id = :id`, sql.Named("date", task.Date), sql.Named("id", task.ID))
 		if err != nil {
-			http.Error(w, "ошибка БД", http.StatusInternalServerError)
+			JsonError(w, "ошибка БД")
+			//http.Error(w, "ошибка БД", http.StatusInternalServerError)
 			return
 		}
 
@@ -425,7 +437,7 @@ func (rb *RoutDb) DoneTaskHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "ошибка сериализации ответа", http.StatusInternalServerError)
 			return
 		}
-
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 		w.Write(res)
 
 	}

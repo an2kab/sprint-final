@@ -33,7 +33,8 @@ func NewServer(r *api.RoutDb) *chi.Mux {
 	mx.Post("/api/task", r.TaskHandler)
 	mx.Get("/api/task", r.TaskHandler)
 	mx.Put("/api/task", r.TaskHandler)
-	mx.Post("/api/task/done", r.TaskHandler)
+	mx.Delete("/api/task", r.TaskHandler)
+	mx.Post("/api/task/done", r.DoneTaskHandler)
 	mx.Get("/api/tasks", r.TasksHandler)
 
 	// Запуск сервера

@@ -6,7 +6,6 @@ import (
 
 func main() {
 
-	//storage.NewStorage()
 	s, err := server.NewRouter()
 	if err != nil {
 		return

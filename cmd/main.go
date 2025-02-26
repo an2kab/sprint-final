@@ -12,4 +12,5 @@ func main() {
 	}
 	server.NewServer(s)
 
+	s.DB.Close()
 }
